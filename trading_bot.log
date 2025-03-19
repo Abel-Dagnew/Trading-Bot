@@ -1,0 +1,22 @@
+2025-03-19 12:32:22,383 - INFO - Successfully connected to MT5 and selected all symbols
+2025-03-19 12:32:22,384 - INFO - Starting live trading on 1-minute timeframe...
+2025-03-19 12:32:22,385 - INFO - Balance: $9971.81
+2025-03-19 12:32:22,401 - ERROR - Order failed: Unsupported filling mode
+2025-03-19 12:32:22,409 - ERROR - Order failed: Unsupported filling mode
+2025-03-19 12:32:22,414 - ERROR - Order failed: Unsupported filling mode
+2025-03-19 12:32:22,418 - ERROR - Order failed: Unsupported filling mode
+2025-03-19 12:32:22,455 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.1.0.5:5000
+2025-03-19 12:32:22,456 - INFO - [33mPress CTRL+C to quit[0m
+2025-03-19 12:32:24,270 - INFO - 127.0.0.1 - - [19/Mar/2025 12:32:24] "GET /api/status HTTP/1.1" 200 -
+2025-03-19 12:32:24,274 - INFO - 127.0.0.1 - - [19/Mar/2025 12:32:24] "GET /api/status HTTP/1.1" 200 -
+2025-03-19 12:32:24,293 - INFO - 127.0.0.1 - - [19/Mar/2025 12:32:24] "GET /api/status HTTP/1.1" 200 -
+2025-03-19 12:32:32,435 - INFO - Balance: $9971.81
+2025-03-19 12:32:32,441 - ERROR - Order failed: Unsupported filling mode
+2025-03-19 12:32:32,451 - ERROR - Order failed: Unsupported filling mode
+2025-03-19 12:32:32,455 - ERROR - Order failed: Unsupported filling mode
+2025-03-19 12:32:32,459 - ERROR - Order failed: Unsupported filling mode
+2025-03-19 12:32:32,464 - ERROR - Order failed: Unsupported filling mode
+2025-03-19 12:32:32,468 - ERROR - Order failed: Unsupported filling mode

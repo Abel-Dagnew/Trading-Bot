@@ -3,86 +3,162 @@ import pandas as pd
 from datetime import datetime, timedelta
 import time
 import logging
+from dotenv import load_dotenv
+import os
 
 class MT5Connector:
-    def __init__(self, login: int, password: str, server: str):
-        """Initialize MT5 connection"""
-        self.login = login
-        self.password = password
-        self.server = server
+    def __init__(self):
         self.connected = False
-        self.setup_logging()
+        # Your AvaTrade MT5 demo credentials
+        self.login = 101490832
+        self.password = "Abel3078@"
+        self.server = "Ava-Demo 1-MT5"
         
-    def setup_logging(self):
-        """Setup logging configuration"""
-        logging.basicConfig(
-            filename='trading_bot.log',
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
-        
-    def connect(self) -> bool:
-        """Connect to MetaTrader 5"""
-        if not mt5.initialize():
-            logging.error(f"MT5 initialization failed: {mt5.last_error()}")
+    def connect(self):
+        """Connect to MT5"""
+        try:
+            # Initialize MT5
+            if not mt5.initialize():
+                logging.error(f"MT5 initialization failed: {mt5.last_error()}")
+                return False
+                
+            # Login to MT5
+            if not mt5.login(
+                login=self.login,
+                password=self.password, 
+                server=self.server
+            ):
+                logging.error(f"MT5 login failed: {mt5.last_error()}")
+                mt5.shutdown()
+                return False
+                
+            self.connected = True
+            account_info = mt5.account_info()
+            logging.info(f"Successfully connected to MT5. Balance: ${account_info.balance}")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Connection error: {str(e)}")
             return False
-            
-        # Login to MT5
-        if not mt5.login(login=self.login, password=self.password, server=self.server):
-            logging.error(f"MT5 login failed: {mt5.last_error()}")
-            mt5.shutdown()
-            return False
-            
-        self.connected = True
-        logging.info("Successfully connected to MetaTrader 5")
-        return True
-        
-    def disconnect(self):
-        """Disconnect from MetaTrader 5"""
-        if self.connected:
-            mt5.shutdown()
-            self.connected = False
-            logging.info("Disconnected from MetaTrader 5")
-            
-    def get_account_info(self) -> dict:
+
+    def get_account_info(self):
         """Get account information"""
         if not self.connected:
             return None
             
-        account_info = mt5.account_info()
-        if account_info is None:
-            logging.error(f"Failed to get account info: {mt5.last_error()}")
+        try:
+            account_info = mt5.account_info()
+            if account_info is None:
+                logging.error(f"Failed to get account info: {mt5.last_error()}")
+                return None
+                
+            return {
+                'balance': account_info.balance,
+                'equity': account_info.equity,
+                'margin': account_info.margin,
+                'free_margin': account_info.margin_free,
+                'leverage': account_info.leverage
+            }
+        except Exception as e:
+            logging.error(f"Account info error: {str(e)}")
             return None
-            
-        return {
-            'balance': account_info.balance,
-            'equity': account_info.equity,
-            'margin': account_info.margin,
-            'free_margin': account_info.margin_free,
-            'leverage': account_info.leverage
-        }
-        
-    def get_symbol_info(self, symbol: str) -> dict:
+
+    def get_symbol_info(self, symbol):
         """Get symbol information"""
         if not self.connected:
             return None
             
-        symbol_info = mt5.symbol_info(symbol)
-        if symbol_info is None:
-            logging.error(f"Failed to get symbol info for {symbol}: {mt5.last_error()}")
+        try:
+            symbol_info = mt5.symbol_info(symbol)
+            if symbol_info is None:
+                logging.error(f"Failed to get symbol info: {mt5.last_error()}")
+                return None
+                
+            return {
+                'bid': symbol_info.bid,
+                'ask': symbol_info.ask,
+                'spread': symbol_info.spread,
+                'digits': symbol_info.digits,
+                'volume_min': symbol_info.volume_min,
+                'volume_step': symbol_info.volume_step
+            }
+        except Exception as e:
+            logging.error(f"Symbol info error: {str(e)}")
+            return None
+
+    def place_order(self, symbol, order_type, volume, price=None, 
+                   stop_loss=None, take_profit=None):
+        """Place a trading order"""
+        if not self.connected:
             return None
             
-        return {
-            'name': symbol_info.name,
-            'bid': symbol_info.bid,
-            'ask': symbol_info.ask,
-            'point': symbol_info.point,
-            'digits': symbol_info.digits,
-            'trade_mode': symbol_info.trade_mode,
-            'volume_min': symbol_info.volume_min,
-            'volume_max': symbol_info.volume_max,
-            'volume_step': symbol_info.volume_step
-        }
+        try:
+            symbol_info = mt5.symbol_info(symbol)
+            if symbol_info is None:
+                return None
+                
+            point = symbol_info.point
+            
+            request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": symbol,
+                "volume": float(volume),
+                "type": mt5.ORDER_TYPE_BUY if order_type.upper() == 'BUY' else mt5.ORDER_TYPE_SELL,
+                "price": price or (symbol_info.ask if order_type.upper() == 'BUY' else symbol_info.bid),
+                "deviation": 20,
+                "magic": 234000,
+                "comment": "Python Trading Bot",
+                "type_time": mt5.ORDER_TIME_GTC,
+                "type_filling": mt5.ORDER_FILLING_IOC,
+            }
+            
+            if stop_loss:
+                request["sl"] = stop_loss
+            if take_profit:
+                request["tp"] = take_profit
+                
+            result = mt5.order_send(request)
+            if result.retcode != mt5.TRADE_RETCODE_DONE:
+                logging.error(f"Order failed: {result.comment}")
+                return None
+                
+            logging.info(f"Order placed successfully: {result.order}")
+            return result.order
+            
+        except Exception as e:
+            logging.error(f"Order placement error: {str(e)}")
+            return None
+
+    def get_positions(self):
+        """Get open positions"""
+        if not self.connected:
+            return []
+            
+        try:
+            positions = mt5.positions_get()
+            if positions is None:
+                logging.error(f"Failed to get positions: {mt5.last_error()}")
+                return []
+                
+            return [{
+                'ticket': pos.ticket,
+                'symbol': pos.symbol,
+                'type': 'BUY' if pos.type == mt5.POSITION_TYPE_BUY else 'SELL',
+                'volume': pos.volume,
+                'price': pos.price_open,
+                'profit': pos.profit
+            } for pos in positions]
+            
+        except Exception as e:
+            logging.error(f"Get positions error: {str(e)}")
+            return []
+
+    def close(self):
+        """Disconnect from MT5"""
+        if self.connected:
+            mt5.shutdown()
+            self.connected = False
+            logging.info("Disconnected from MT5")
         
     def get_historical_data(self, symbol: str, timeframe: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
         """Get historical data from MT5"""
@@ -125,46 +201,6 @@ class MT5Connector:
         
         return df
         
-    def place_order(self, symbol: str, order_type: str, volume: float, price: float = None,
-                   stop_loss: float = None, take_profit: float = None) -> int:
-        """Place a new order"""
-        if not self.connected:
-            return None
-            
-        # Get symbol info
-        symbol_info = self.get_symbol_info(symbol)
-        if symbol_info is None:
-            return None
-            
-        # Prepare order request
-        request = {
-            "action": mt5.TRADE_ACTION_DEAL,
-            "symbol": symbol,
-            "volume": volume,
-            "type": mt5.ORDER_TYPE_BUY if order_type == 'buy' else mt5.ORDER_TYPE_SELL,
-            "price": price or (symbol_info['ask'] if order_type == 'buy' else symbol_info['bid']),
-            "deviation": 20,
-            "magic": 234000,
-            "comment": "Python Trading Bot",
-            "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
-        }
-        
-        # Add stop loss and take profit if provided
-        if stop_loss:
-            request["sl"] = stop_loss
-        if take_profit:
-            request["tp"] = take_profit
-            
-        # Send order
-        result = mt5.order_send(request)
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
-            logging.error(f"Order failed: {result.comment}")
-            return None
-            
-        logging.info(f"Order placed successfully: {result.order}")
-        return result.order
-        
     def close_order(self, order_id: int) -> bool:
         """Close an existing order"""
         if not self.connected:
@@ -200,16 +236,4 @@ class MT5Connector:
             return False
             
         logging.info(f"Order closed successfully: {order_id}")
-        return True
-        
-    def get_open_positions(self) -> list:
-        """Get all open positions"""
-        if not self.connected:
-            return []
-            
-        positions = mt5.positions_get()
-        if positions is None:
-            logging.error(f"Failed to get positions: {mt5.last_error()}")
-            return []
-            
-        return positions 
+        return True 

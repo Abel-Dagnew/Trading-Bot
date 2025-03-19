@@ -1,6 +1,7 @@
 from .base_strategy import BaseStrategy
 import pandas as pd
 import numpy as np
+from datetime import datetime
 
 class ICTCombinedStrategy(BaseStrategy):
     def __init__(self, symbol: str, timeframe: str, risk_percentage: float = 1.0):
@@ -10,6 +11,8 @@ class ICTCombinedStrategy(BaseStrategy):
         self.max_daily_trades = 8  # Moderate number of trades for gold
         self.trades_today = 0
         self.last_trade_time = None
+        self.price_data = []
+        self.current_price = None
         
     def calculate_volatility(self, data: pd.DataFrame) -> float:
         """Calculate current market volatility"""
@@ -262,4 +265,67 @@ class ICTCombinedStrategy(BaseStrategy):
         risk_amount = account_balance * (self.risk_percentage / 100)
         # Gold moves in dollars, not pips
         position_size = risk_amount / stop_loss_pips
-        return round(position_size, 2)  # Round to 2 decimal places 
+        return round(position_size, 2)  # Round to 2 decimal places
+
+    def update(self, price_info):
+        """Update strategy with new price information"""
+        self.current_price = price_info
+        
+        # Add price to historical data
+        self.price_data.append({
+            'timestamp': datetime.now(),
+            'bid': price_info['bid'],
+            'ask': price_info['ask']
+        })
+        
+        # Keep only last 100 price points
+        if len(self.price_data) > 100:
+            self.price_data = self.price_data[-100:]
+            
+        return self.generate_signals()
+        
+    def generate_signals(self):
+        """Generate trading signals based on ICT concepts"""
+        signals = []
+        
+        if len(self.price_data) < 20:  # Need minimum data points
+            return signals
+            
+        # Convert price data to DataFrame
+        df = pd.DataFrame(self.price_data)
+        
+        # Calculate basic indicators
+        df['mid'] = (df['bid'] + df['ask']) / 2
+        df['sma20'] = df['mid'].rolling(window=20).mean()
+        df['high'] = df['mid'].rolling(window=5).max()
+        df['low'] = df['mid'].rolling(window=5).min()
+        
+        # Get latest data point
+        latest = df.iloc[-1]
+        prev = df.iloc[-2]
+        
+        # Simple ICT-based rules
+        # 1. Price above/below SMA20
+        # 2. Price at significant high/low
+        
+        if latest['mid'] > latest['sma20'] and prev['mid'] <= prev['sma20']:
+            signals.append({
+                'symbol': self.symbol,
+                'action': 'BUY',
+                'price': self.current_price['ask'],
+                'volume': self.calculate_position_size(self.risk_percentage, 100),
+                'stop_loss': latest['low'],
+                'take_profit': latest['high'] + (latest['high'] - latest['low'])
+            })
+            
+        elif latest['mid'] < latest['sma20'] and prev['mid'] >= prev['sma20']:
+            signals.append({
+                'symbol': self.symbol,
+                'action': 'SELL',
+                'price': self.current_price['bid'],
+                'volume': self.calculate_position_size(self.risk_percentage, 100),
+                'stop_loss': latest['high'],
+                'take_profit': latest['low'] - (latest['high'] - latest['low'])
+            })
+            
+        return signals 

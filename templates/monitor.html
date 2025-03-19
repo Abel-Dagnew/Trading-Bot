@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trading Bot Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-running { background-color: #4CAF50; }
+        .status-stopped { background-color: #f44336; }
+        .log-container {
+            height: 300px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .trade-list {
+            list-style: none;
+            padding: 0;
+        }
+        .trade-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Trading Bot Monitor</h1>
+        
+        <div class="card">
+            <h2>Bot Status</h2>
+            <div>
+                <span class="status-indicator" id="statusDot"></span>
+                <span id="statusText">Checking status...</span>
+            </div>
+            <p>Last Update: <span id="lastUpdate">-</span></p>
+            <p>Account Balance: <span id="accountBalance">-</span></p>
+            <p>Current Position: <span id="currentPosition">-</span></p>
+        </div>
+
+        <div class="card">
+            <h2>Recent Trades</h2>
+            <ul class="trade-list" id="recentTrades"></ul>
+        </div>
+
+        <div class="card">
+            <h2>Log Messages</h2>
+            <div class="log-container" id="logMessages"></div>
+        </div>
+    </div>
+
+    <script>
+        function updateStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Update status indicator
+                    const statusDot = document.getElementById('statusDot');
+                    const statusText = document.getElementById('statusText');
+                    statusDot.className = 'status-indicator ' + 
+                        (data.running ? 'status-running' : 'status-stopped');
+                    statusText.textContent = data.running ? 'Running' : 'Stopped';
+
+                    // Update other status information
+                    document.getElementById('lastUpdate').textContent = 
+                        data.last_update || '-';
+                    document.getElementById('accountBalance').textContent = 
+                        data.account_balance || '-';
+                    document.getElementById('currentPosition').textContent = 
+                        data.current_position || 'No position';
+
+                    // Update trades
+                    const tradesList = document.getElementById('recentTrades');
+                    tradesList.innerHTML = data.recent_trades
+                        .map(trade => `
+                            <li class="trade-item">
+                                <strong>${trade.symbol}</strong> - 
+                                ${trade.type} @ ${trade.price}
+                                (P/L: ${trade.profit_loss})
+                            </li>
+                        `).join('');
+
+                    // Update logs
+                    const logsContainer = document.getElementById('logMessages');
+                    logsContainer.innerHTML = data.logs
+                        .map(log => `<div>${log}</div>`)
+                        .join('');
+                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                })
+                .catch(error => console.error('Error fetching status:', error));
+        }
+
+        // Update status every 2 seconds
+        setInterval(updateStatus, 2000);
+        updateStatus();  // Initial update
+    </script>
+</body>
+</html> 
